@@ -97,7 +97,9 @@ server <- function(input, output, session) {
                     labCol = colnames(local_mat),
                     labRow = if (nrow(local_mat) <= 20) rownames(local_mat) else NULL,
                     fontsize_col = 10,
-                    fontsize = 12)
+                    fontsize = 12, 
+                    colorbar_len = 0.5,         # Shrinks the colorbar length (range 0 to 1)
+                    colorbar_yanchor = "center") # Re-centers vertically
         })
       })
       
