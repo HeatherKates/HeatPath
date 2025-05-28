@@ -9,6 +9,24 @@ library(digest)
 GO <- readRDS("data/gene_sets_human.rds")
 
 server <- function(input, output, session) {
+  output$download_example_logcpm <- downloadHandler(
+    filename = function() {
+      "example_logCPM.csv"
+    },
+    content = function(file) {
+      file.copy("test_data/test_lcpm.csv", file)
+    }
+  )
+  
+  output$download_example_sampleinfo <- downloadHandler(
+    filename = function() {
+      "example_sample_info.csv"
+    },
+    content = function(file) {
+      file.copy("test_data/test_sample_info.csv", file)
+    }
+  )
+  
   updateSelectInput(session, "db_select", choices = names(GO), selected = names(GO)[1])
   
   observeEvent(input$db_select, {
