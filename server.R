@@ -5,29 +5,30 @@ library(readr)
 library(tidyr)
 library(stringr)
 library(purrr)
+library(shinyWidgets)
 library(tibble)
 library(digest)
 
 GO <- readRDS("data/gene_sets_human.rds")
 
-function(input, output, session) {
-  
-  updateSelectInput(session, "db_select", choices = names(GO), selected = "GO")
+server <- function(input, output, session) {
+  # Set choices dynamically
+  updateSelectInput(session, "db_select", choices = names(GO), selected = names(GO)[1])
   
   logcpm_data <- reactive({
     req(input$logcpm_file)
-    df <- read_csv(input$logcpm_file$datapath)
+    df <- read.csv(input$logcpm_file$datapath, check.names = FALSE)
     gene_ids <- df[[1]]
     keep <- !is.na(gene_ids) & gene_ids != ""
     df <- df[keep, , drop = FALSE]
-    rownames(df) <- make.unique(df[[1]])
+    rownames(df) <- make.unique(as.character(df[[1]]))
     df[[1]] <- NULL
     as.matrix(df)
   })
   
   sample_info <- reactive({
     req(input$sampleinfo_file)
-    df <- read_csv(input$sampleinfo_file$datapath)
+    df <- read.csv(input$sampleinfo_file$datapath, check.names = FALSE)
     colnames(df)[1:2] <- c("sample_name", "group")
     df <- df %>% filter(sample_name %in% colnames(logcpm_data()))
     df
@@ -35,84 +36,112 @@ function(input, output, session) {
   
   output$pathway_selector <- renderUI({
     req(input$db_select)
-    pickerInput("selected_pathways", "Select Pathway(s)", 
-                choices = names(GO[[input$db_select]]), 
+    pathways <- names(GO[[input$db_select]])
+    pickerInput("selected_pathways", "Select Pathway(s)",
+                choices = pathways,
                 multiple = TRUE,
                 options = list(`live-search` = TRUE, size = 10))
   })
   
-  plot_titles <- reactiveVal(character())
-  plot_ids <- reactiveVal(character())
+  plot_data <- reactiveVal(list())
+  
+  # Track already-plotted pathways
+  plotted_pathways <- reactiveVal(character())
   
   observeEvent(input$generate_plot, {
     req(input$selected_pathways)
-    mat <- isolate(logcpm_data())
-    sample_ann <- isolate(sample_info())
-    current_titles <- plot_titles()
-    current_ids <- plot_ids()
+    mat <- logcpm_data()
+    ann_df <- sample_info()
     
-    new_outputs <- lapply(seq_along(input$selected_pathways), function(i) {
-      pathway <- input$selected_pathways[[i]]
-      uid <- paste0("plot_", digest::digest(paste(pathway, Sys.time(), runif(1))))
+    current_plots <- plot_data()
+    previous <- plotted_pathways()
+    
+    # Only plot new selections
+    new_pathways <- setdiff(input$selected_pathways, previous)
+    if (length(new_pathways) == 0) return()
+    
+    for (pathway in new_pathways) {
+      uid <- paste0("plot_", digest::digest(paste0(pathway, Sys.time(), runif(1))))
       plot_title <- if (nzchar(input$sample_desc)) input$sample_desc else paste("Heatmap:", pathway)
       
+      genes <- GO[[input$db_select]][[pathway]]
+      matched <- intersect(rownames(mat), genes)
+      sub_mat <- mat[matched, , drop = FALSE]
+      
+      if (nrow(sub_mat) < 2) next  # skip invalid plots
+      
+      sub_mat <- t(scale(t(sub_mat)))
+      ann_df2 <- ann_df %>% column_to_rownames("sample_name")
+      ann_df2 <- ann_df2[colnames(sub_mat), , drop = FALSE]
+      
       local({
-        this_uid <- uid
-        this_title <- plot_title
-        this_pathway <- pathway
+        local_uid <- uid
+        local_title <- plot_title
+        local_mat <- sub_mat
+        local_ann <- ann_df2
         
-        output[[this_uid]] <- renderPlotly({
-          genes <- GO[[input$db_select]][[this_pathway]]
-          matched <- intersect(rownames(mat), genes)
-          sub_mat <- mat[matched, , drop = FALSE]
-          
-          validate(need(nrow(sub_mat) >= 2, paste("Too few genes in pathway:", this_pathway)))
-          
-          sub_mat <- t(scale(t(sub_mat)))
-          ann_df <- sample_ann %>% column_to_rownames("sample_name")
-          ann_df <- ann_df[colnames(sub_mat), , drop = FALSE]
-          
-          heatmaply(sub_mat, 
-                    col_side_colors = ann_df,
+        output[[local_uid]] <- renderPlotly({
+          heatmaply(local_mat,
+                    col_side_colors = local_ann,
                     colors = colorRampPalette(c("red", "white", "blue"))(256),
-                    main = this_title,
-                    plot_method = "plotly"
-          )
+                    main = local_title,
+                    plot_method = "plotly",
+                    scale_fill_gradient_fun = ggplot2::scale_fill_gradient2,
+                    margins = c(60, 120, 40, 20),
+                    key.title = "Z-score",
+                    fontsize_row = 10,
+                    dendrogram = "both",
+                    showticklabels = c(TRUE, nrow(local_mat) <= 20),
+                    grid_color = "transparent",
+                    cellnote = NULL,
+                    row_text_angle = 0,
+                    column_text_angle = 45,
+                    labCol = colnames(local_mat),
+                    labRow = if (nrow(local_mat) <= 20) rownames(local_mat) else NULL,
+                    fontsize_col = 10,
+                    fontsize = 12)
         })
       })
       
-      list(uid = uid, title = plot_title)
-    })
+      current_plots[[uid]] <- list(title = plot_title, pathway = pathway)
+    }
     
-    plot_titles(c(current_titles, sapply(new_outputs, `[[`, "title")))
-    plot_ids(c(current_ids, sapply(new_outputs, `[[`, "uid")))
+    # Update state
+    plot_data(current_plots)
+    plotted_pathways(union(previous, new_pathways))
   })
+  
   
   output$heatmap_outputs <- renderUI({
-    ids <- plot_ids()
-    titles <- plot_titles()
-    if (length(ids) == 0) return(NULL)
+    all_plots <- plot_data()
+    if (length(all_plots) == 0) return(NULL)
     
-    tagList(lapply(seq_along(ids), function(i) {
-      tagList(
-        h4(titles[i]),
-        plotlyOutput(ids[i]),
-        actionButton(paste0("remove_plot_", i), "Remove")
-      )
-    }))
+    tagList(
+      lapply(seq_along(all_plots), function(i) {
+        uid <- names(all_plots)[i]
+        tagList(
+          tags$h4(all_plots[[i]]$title),
+          plotlyOutput(uid),
+          actionButton(paste0("remove_plot_", uid), "Remove Plot"),
+          tags$hr()
+        )
+      })
+    )
   })
   
+  # Remove logic
   observe({
-    req(plot_ids())
-    lapply(seq_along(plot_ids()), function(i) {
-      observeEvent(input[[paste0("remove_plot_", i)]], {
-        titles_list <- plot_titles()
-        ids_list <- plot_ids()
+    lapply(names(plot_data()), function(uid) {
+      observeEvent(input[[paste0("remove_plot_", uid)]], {
+        current <- plot_data()
+        removed_pathway <- current[[uid]]$pathway
+        current[[uid]] <- NULL
+        plot_data(current)
         
-        keep <- seq_along(ids_list) != i
-        plot_titles(titles_list[keep])
-        plot_ids(ids_list[keep])
-      }, ignoreInit = TRUE)
+        # Update plotted_pathways too
+        current_paths <- plotted_pathways()
+        plotted_pathways(setdiff(current_paths, removed_pathway))
+      }, ignoreInit = TRUE, once = TRUE)
     })
   })
 }

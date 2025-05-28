@@ -7,7 +7,7 @@ fluidPage(
     sidebarPanel(
       fileInput("logcpm_file", "Upload logCPM Matrix (.csv)", accept = ".csv"),
       fileInput("sampleinfo_file", "Upload Sample Info (.csv)", accept = ".csv"),
-      selectInput("db_select", "Select Database", choices = NULL),  # Populated in server
+      selectInput("db_select", "Select Database", choices = NULL),  # dynamically populated in server
       uiOutput("pathway_selector"),
       textInput("sample_desc", "Plot Title (optional)", value = ""),
       actionButton("generate_plot", "Generate Plot"),
