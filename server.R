@@ -12,8 +12,17 @@ library(digest)
 GO <- readRDS("data/gene_sets_human.rds")
 
 server <- function(input, output, session) {
-  # Set choices dynamically
+  # Update the database select choices
   updateSelectInput(session, "db_select", choices = names(GO), selected = names(GO)[1])
+  
+  # Dynamically update the pathway choices based on db_select
+  observeEvent(input$db_select, {
+    pathways <- names(GO[[input$db_select]])
+    updatePickerInput(session, "selected_pathways",
+                      choices = pathways,
+                      selected = character(0))  # Reset selection
+
+  })
   
   logcpm_data <- reactive({
     req(input$logcpm_file)
@@ -34,18 +43,7 @@ server <- function(input, output, session) {
     df
   })
   
-  output$pathway_selector <- renderUI({
-    req(input$db_select)
-    pathways <- names(GO[[input$db_select]])
-    pickerInput("selected_pathways", "Select Pathway(s)",
-                choices = pathways,
-                multiple = TRUE,
-                options = list(`live-search` = TRUE, size = 10))
-  })
-  
   plot_data <- reactiveVal(list())
-  
-  # Track already-plotted pathways
   plotted_pathways <- reactiveVal(character())
   
   observeEvent(input$generate_plot, {
@@ -106,11 +104,15 @@ server <- function(input, output, session) {
       current_plots[[uid]] <- list(title = plot_title, pathway = pathway)
     }
     
-    # Update state
+    # Update stored plots and plotted pathways
     plot_data(current_plots)
     plotted_pathways(union(previous, new_pathways))
+    
+    # Reset picker selection (this is key to fixing the UI behavior)
+    updatePickerInput(session, "selected_pathways", selected = character(0))
+    # Reset plot title input
+    updateTextInput(session, "sample_desc", value = "")
   })
-  
   
   output$heatmap_outputs <- renderUI({
     all_plots <- plot_data()
