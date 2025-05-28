@@ -121,14 +121,17 @@ server <- function(input, output, session) {
     tagList(
       lapply(seq_along(all_plots), function(i) {
         uid <- names(all_plots)[i]
+        pathway <- all_plots[[i]]$pathway
+        custom_title <- all_plots[[i]]$title
         tagList(
-          tags$h4(all_plots[[i]]$title),
+          tags$h4(paste("Heatmap:", pathway)),  # Top-left title
           plotlyOutput(uid),
           actionButton(paste0("remove_plot_", uid), "Remove Plot"),
           tags$hr()
         )
       })
     )
+    
   })
   
   # Remove logic
