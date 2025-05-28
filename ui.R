@@ -54,7 +54,10 @@ ui <- fluidPage(
              div(class = "section-header", "Pathway Heatmap Controls"),
              
              fileInput("logcpm_file", "Upload logCPM Matrix (.csv)", accept = ".csv"),
+             downloadButton("download_example_logcpm", "Download example logCPM CSV file", class = "btn btn-sm btn-outline-primary"),
              fileInput("sampleinfo_file", "Upload Sample Info (.csv)", accept = ".csv"),
+             downloadButton("download_example_sampleinfo", "Download example sample info CSV file", class = "btn btn-sm btn-outline-primary"),
+             
              selectInput("db_select", "Select Database", choices = NULL),
              
              pickerInput(
