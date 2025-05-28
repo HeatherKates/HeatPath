@@ -77,6 +77,8 @@ ui <- fluidPage(
              actionButton("generate_plot", "Generate Plot", class = "btn btn-primary btn-block"),
              
              div(class = "section-header", "Heatmap Output"),
+             downloadButton("download_all_html", "Download all plots as HTML file", class = "btn btn-primary", style = "margin-top: 10px;"),
+             
              uiOutput("heatmap_outputs")
     ),
     
@@ -86,12 +88,20 @@ ui <- fluidPage(
              h3("Usage Instructions"),
              tags$ol(
                tags$li("Upload logCPM expression matrix with gene symbols or Ensembl IDs."),
-               tags$li("Upload sample information CSV with 'sample_name' and 'group' columns."),
+               tags$li("Upload sample information CSV with 'sample_name' and an annotation column. If >1 annotation columns are included, only the first will be used."),
                tags$li("Select a pathway database and choose one or more pathways."),
                tags$li("Optionally add a title for each plot and generate plots interactively."),
+               tags$li("You may download the lcpm counts matrix for the genes and samples in the heatmap."),
                tags$li("Use 'Remove Plot' buttons to remove unwanted plots from the display.")
-             )
-    )
+             ),
+             h3("What data are plotted?"),
+             tags$ol(
+               tags$li("For each selected pathway, the app extracts the corresponding genes from your expression matrix and generates a heatmap."),
+               
+               tags$li("To make the heatmaps easier to interpret, the expression values are standardized within each gene: this means converting the logCPM values into Z-scores by subtracting the mean and dividing by the standard deviation across samples. This allows you to see relative changes in expression for each gene across the samples, regardless of their absolute expression levels."),
+               
+               tags$li("Red indicates higher-than-average expression for that gene in a sample, while blue indicates lower-than-average expression. White indicates expression close to the gene’s average. This makes it easier to visually identify patterns of up- or down-regulation across samples.")
+    ))
   ),
   
   # Footer
