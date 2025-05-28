@@ -36,6 +36,72 @@ server <- function(input, output, session) {
   })
   
   plot_data <- reactiveVal(list())
+  output$download_all_html <- downloadHandler(
+    filename = function() {
+      paste0("heatmaps_", Sys.Date(), ".html")
+    },
+    content = function(file) {
+      temp_rmd <- tempfile(fileext = ".Rmd")
+      temp_dir <- tempdir()
+      plots <- plot_data()
+      
+      if (length(plots) == 0) {
+        writeLines("<h3>No plots to export.</h3>", file)
+        return()
+      }
+      
+      # Save each scaled matrix to a separate .rds file
+      matrix_paths <- lapply(names(plots), function(uid) {
+        mat_path <- file.path(temp_dir, paste0(uid, ".rds"))
+        saveRDS(t(scale(t(plots[[uid]]$matrix))), mat_path)
+        list(title = plots[[uid]]$title, rds_path = mat_path)
+      })
+      
+      # Create the Rmd file content
+      rmd_lines <- c(
+        "---",
+        "title: 'All Heatmaps'",
+        "output: html_document",
+        "---",
+        "",
+        "```{r setup, include=FALSE}",
+        "library(heatmaply)",
+        "library(grDevices)",
+        "```",
+        ""
+      )
+      
+      for (entry in matrix_paths) {
+        title <- entry$title
+        abs_path <- normalizePath(entry$rds_path, winslash = "/")  # works on all OS
+        rmd_lines <- c(
+          rmd_lines,
+          paste0("## ", title),
+          "",
+          "```{r, echo=FALSE, message=FALSE, warning=FALSE}",
+          paste0("mat <- readRDS(\"", abs_path, "\")"),
+          "heatmaply(mat,",
+          "  plot_method = 'plotly',",
+          "  colors = colorRampPalette(c('red', 'white', 'blue'))(256)",
+          ")",
+          "```",
+          ""
+        )
+      }
+      
+      writeLines(rmd_lines, temp_rmd)
+      
+      rmarkdown::render(
+        input = temp_rmd,
+        output_file = file,
+        envir = new.env(),
+        quiet = TRUE
+      )
+    }
+  )
+  
+  
+  
   plotted_pathways <- reactiveVal(character())
   
   observeEvent(input$generate_plot, {
