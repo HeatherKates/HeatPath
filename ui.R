@@ -1,36 +1,105 @@
 library(shiny)
+library(shinyjs)
 library(shinyWidgets)
 
-
-fluidPage(
+ui <- fluidPage(
+  useShinyjs(),
   
-  titlePanel("Pathway Heatmaps (GO / KEGG)"),
-  sidebarLayout(
-    sidebarPanel(
-      fileInput("logcpm_file", "Upload logCPM Matrix (.csv)", accept = ".csv"),
-      fileInput("sampleinfo_file", "Upload Sample Info (.csv)", accept = ".csv"),
-      selectInput("db_select", "Select Database", choices = NULL),  # dynamically populated in server
-      pickerInput(
-        inputId = "selected_pathways",
-        label = "Select Pathway(s)",
-        choices = NULL,  # Choices will be updated dynamically via updatePickerInput()
-        multiple = TRUE,
-        options = list(
-          `live-search` = TRUE,
-          `size` = 10,
-          `selected-text-format` = "count > 3",
-          `actions-box` = TRUE,
-          `style` = "btn-primary"
-        )
-      )
-      ,
-      
-      textInput("sample_desc", "Plot Title (optional)", value = ""),
-      actionButton("generate_plot", "Generate Plot"),
-      width = 3
+  # Load fonts & custom styles
+  tags$head(
+    tags$link(rel = "stylesheet", href = "https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap"),
+    tags$style(HTML("
+      body {
+        font-family: 'Roboto', sans-serif;
+        background-color: white;
+        color: #323b3f;
+      }
+      .app-header {
+        background-color: #005496;
+        color: white;
+        padding: 20px;
+        font-size: 22px;
+        font-weight: bold;
+      }
+      .section-header {
+        background-color: #005496;
+        color: white;
+        padding: 10px;
+        margin-top: 20px;
+        font-size: 18px;
+        font-weight: bold;
+      }
+      .btn-primary {
+        background-color: #005496 !important;
+        border-color: #005496 !important;
+        color: white !important;
+      }
+      .nav-tabs > li > a {
+        color: #005496;
+        font-weight: bold;
+      }
+      .nav-tabs > li.active > a {
+        background-color: #e5f0fa;
+        border-color: #005496;
+      }
+    "))
+  ),
+  
+  # Top UFHCC-branded header
+  div(class = "app-header", "UFHCC BCB-SR: Pathway Heatmaps"),
+  
+  # Main app content with About tab
+  tabsetPanel(
+    tabPanel("Pathway Heatmaps",
+             div(class = "section-header", "Create Pathway Heatmaps"),
+             
+             fileInput("logcpm_file", "Upload logCPM Matrix (.csv)", accept = ".csv"),
+             fileInput("sampleinfo_file", "Upload Sample Info (.csv)", accept = ".csv"),
+             selectInput("db_select", "Select Database", choices = NULL),
+             
+             pickerInput(
+               inputId = "selected_pathways",
+               label = "Select Pathway(s)",
+               choices = NULL,
+               multiple = TRUE,
+               options = list(
+                 `live-search` = TRUE,
+                 `size` = 10,
+                 `selected-text-format` = "count > 3",
+                 `actions-box` = TRUE,
+                 `style` = "btn-primary",
+                 `iconBase` = "fas",
+                 `tickIcon` = "fas fa-check text-primary"
+               )
+             ),
+             
+             textInput("sample_desc", "Plot Title (optional)", value = ""),
+             actionButton("generate_plot", "Generate Plot", class = "btn btn-primary btn-block"),
+             
+             div(class = "section-header", "Heatmap Output"),
+             uiOutput("heatmap_outputs")
     ),
-    mainPanel(
-      uiOutput("heatmap_outputs")
+    
+    tabPanel("About",
+             h3("What is This Tool?"),
+             p("This app allows users to generate heatmaps of gene expression for selected pathways using RNA-seq data. It supports GO, KEGG, and Reactome gene sets, and provides interactive plotting and annotation options."),
+             h3("Usage Instructions"),
+             tags$ol(
+               tags$li("Upload logCPM expression matrix with gene symbols or Ensembl IDs."),
+               tags$li("Upload sample information CSV with 'sample_name' and 'group' columns."),
+               tags$li("Select a pathway database and choose one or more pathways."),
+               tags$li("Optionally add a title for each plot and generate plots interactively."),
+               tags$li("Use 'Remove Plot' buttons to remove unwanted plots from the display.")
+             )
     )
+  ),
+  
+  # Footer
+  tags$footer(
+    tags$hr(),
+    div(style = "text-align: center; color: #999;",
+        "Contact: hkates@ufl.edu | UF Health Cancer Center Bioinformatics Shared Resource"
+    ),
+    style = "margin-top: 40px;"
   )
 )
