@@ -51,7 +51,7 @@ ui <- fluidPage(
   # Main app content with About tab
   tabsetPanel(
     tabPanel("Pathway Heatmaps",
-             div(class = "section-header", "Create Pathway Heatmaps"),
+             div(class = "section-header", "Pathway Heatmap Controls"),
              
              fileInput("logcpm_file", "Upload logCPM Matrix (.csv)", accept = ".csv"),
              fileInput("sampleinfo_file", "Upload Sample Info (.csv)", accept = ".csv"),
