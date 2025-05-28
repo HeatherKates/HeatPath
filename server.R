@@ -38,7 +38,7 @@ server <- function(input, output, session) {
   sample_info <- reactive({
     req(input$sampleinfo_file)
     df <- read.csv(input$sampleinfo_file$datapath, check.names = FALSE)
-    colnames(df)[1:2] <- c("sample_name", "group")
+    colnames(df)[1] <- c("sample_name")
     df <- df %>% filter(sample_name %in% colnames(logcpm_data()))
     df
   })
@@ -85,7 +85,7 @@ server <- function(input, output, session) {
                     main = local_title,
                     plot_method = "plotly",
                     scale_fill_gradient_fun = ggplot2::scale_fill_gradient2,
-                    margins = c(60, 120, 40, 20),
+                    margins = c(60, 120, 60, 60),
                     key.title = "Z-score",
                     fontsize_row = 10,
                     dendrogram = "both",
@@ -97,9 +97,7 @@ server <- function(input, output, session) {
                     labCol = colnames(local_mat),
                     labRow = if (nrow(local_mat) <= 20) rownames(local_mat) else NULL,
                     fontsize_col = 10,
-                    fontsize = 12, 
-                    colorbar_len = 0.5,         # Shrinks the colorbar length (range 0 to 1)
-                    colorbar_yanchor = "center") # Re-centers vertically
+                    fontsize = 12) # Re-centers vertically
         })
       })
       
@@ -127,7 +125,7 @@ server <- function(input, output, session) {
         custom_title <- all_plots[[i]]$title
         tagList(
           tags$h4(paste("Heatmap:", pathway)),  # Top-left title
-          plotlyOutput(uid),
+          plotlyOutput(uid, height = "500px"),
           actionButton(paste0("remove_plot_", uid), "Remove Plot"),
           tags$hr()
         )
