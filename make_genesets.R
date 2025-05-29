@@ -19,7 +19,8 @@ for (org in names(organisms)) {
   
   # ---- KEGG ----
   kegg_df <- msigdbr(species = org, category = "C2") %>%
-    filter(gs_subcat == "CP:KEGG")
+    filter(gs_subcat %in% c("CP:KEGG_LEGACY", "CP:KEGG_MEDICUS"))
+  
   if (nrow(kegg_df) > 0) {
     kegg_list <- split(kegg_df$gene_symbol, kegg_df$gs_name)
     kegg_list <- kegg_list[lengths(kegg_list) >= 10]
