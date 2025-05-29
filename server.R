@@ -150,7 +150,6 @@ server <- function(input, output, session) {
     uploaded_ids <- trimws(uploaded_ids)
     uploaded_ids <- uploaded_ids[uploaded_ids != ""]
     
-    
     # Filter the converter to just this database
     db_converter <- id_converter %>% filter(db == db)
     
