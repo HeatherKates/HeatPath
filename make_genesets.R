@@ -1,5 +1,6 @@
 library(msigdbr)
 library(dplyr)
+library(stringr)
 
 dir.create("data", showWarnings = FALSE)
 
@@ -11,42 +12,52 @@ for (org in names(organisms)) {
   
   gene_sets <- list()
   
+  # Helper function to build a gene set list and metadata
+  build_gene_set <- function(df, name = "unknown") {
+    gene_list <- split(df$gene_symbol, df$gs_name)
+    gene_list <- gene_list[lengths(gene_list) >= 10]
+    
+    meta <- df %>%
+      distinct(gs_name, gs_description) %>%
+      filter(gs_name %in% names(gene_list)) %>%
+      mutate(
+        set_id = gs_name,
+        name_clean = str_replace_all(gs_name, "_", " "),
+        searchable_text = paste(gs_name, gs_description, sep = " | ")
+      )
+    
+    return(list(
+      genes = gene_list,
+      metadata = meta
+    ))
+  }
+  
   # ---- GO (BP, MF, CC) ----
   go_df <- msigdbr(species = org, category = "C5")
-  go_list <- split(go_df$gene_symbol, go_df$gs_name)
-  go_list <- go_list[lengths(go_list) >= 10]
-  gene_sets$GO <- go_list
+  gene_sets$GO <- build_gene_set(go_df, "GO")
   
   # ---- KEGG ----
   kegg_df <- msigdbr(species = org, category = "C2") %>%
     filter(gs_subcat %in% c("CP:KEGG_LEGACY", "CP:KEGG_MEDICUS"))
-  
   if (nrow(kegg_df) > 0) {
-    kegg_list <- split(kegg_df$gene_symbol, kegg_df$gs_name)
-    kegg_list <- kegg_list[lengths(kegg_list) >= 10]
-    gene_sets$KEGG <- kegg_list
+    gene_sets$KEGG <- build_gene_set(kegg_df, "KEGG")
   }
   
   # ---- Reactome ----
   reactome_df <- msigdbr(species = org, category = "C2") %>%
     filter(gs_subcat == "CP:REACTOME")
   if (nrow(reactome_df) > 0) {
-    reactome_list <- split(reactome_df$gene_symbol, reactome_df$gs_name)
-    reactome_list <- reactome_list[lengths(reactome_list) >= 10]
-    gene_sets$Reactome <- reactome_list
+    gene_sets$Reactome <- build_gene_set(reactome_df, "Reactome")
   }
   
   # ---- BioCarta ----
   biocarta_df <- msigdbr(species = org, category = "C2") %>%
     filter(gs_subcat == "CP:BIOCARTA")
   if (nrow(biocarta_df) > 0) {
-    biocarta_list <- split(biocarta_df$gene_symbol, biocarta_df$gs_name)
-    biocarta_list <- biocarta_list[lengths(biocarta_list) >= 10]
-    gene_sets$BioCarta <- biocarta_list
+    gene_sets$BioCarta <- build_gene_set(biocarta_df, "BioCarta")
   }
   
   # ---- Save ----
   saveRDS(gene_sets, file = paste0("data/gene_sets_", tag, ".rds"))
 }
-
 

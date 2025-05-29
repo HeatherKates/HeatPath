@@ -30,8 +30,28 @@ server <- function(input, output, session) {
   updateSelectInput(session, "db_select", choices = names(GO), selected = names(GO)[1])
   
   observeEvent(input$db_select, {
-    pathways <- names(GO[[input$db_select]])
-    updatePickerInput(session, "selected_pathways", choices = pathways, selected = character(0))
+    updateTextInput(session, "pathway_search", value = "")
+    output$search_results <- renderUI(NULL)
+  })
+  
+  observeEvent(input$search_button, {
+    req(input$pathway_search)
+    db <- input$db_select
+    search_term <- tolower(input$pathway_search)
+    metadata <- GO[[db]]$metadata
+    
+    matches <- metadata %>%
+      filter(grepl(search_term, tolower(searchable_text), fixed = TRUE))
+    
+    if (nrow(matches) == 0) {
+      output$search_results <- renderUI(tags$p("No pathways found."))
+    } else {
+      output$search_results <- renderUI({
+        checkboxGroupInput("selected_pathways", "Select Pathways:", 
+                           choices = setNames(matches$set_id, matches$name_clean),
+                           selected = NULL)
+      })
+    }
   })
   
   logcpm_data <- reactive({
@@ -136,7 +156,7 @@ server <- function(input, output, session) {
       uid <- paste0("plot_", digest::digest(paste0(pathway, Sys.time(), runif(1))))
       plot_title <- if (nzchar(input$sample_desc)) input$sample_desc else paste("Heatmap:", pathway)
       
-      genes <- GO[[input$db_select]][[pathway]]
+      genes <- GO[[input$db_select]]$genes[[pathway]]
       matched <- intersect(rownames(mat), genes)
       sub_mat_raw <- mat[matched, , drop = FALSE]
       sub_mat <- t(scale(t(sub_mat_raw)))
@@ -189,7 +209,7 @@ server <- function(input, output, session) {
     
     plot_data(current_plots)
     plotted_pathways(union(previous, new_pathways))
-    updatePickerInput(session, "selected_pathways", selected = character(0))
+    updateCheckboxGroupInput(session, "selected_pathways", selected = character(0))
     updateTextInput(session, "sample_desc", value = "")
   })
   

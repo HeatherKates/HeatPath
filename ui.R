@@ -58,23 +58,12 @@ ui <- fluidPage(
              fileInput("sampleinfo_file", "Upload Sample Info (.csv)", accept = ".csv"),
              downloadButton("download_example_sampleinfo", "Download example sample info CSV file", class = "btn btn-sm btn-outline-primary"),
              
-             selectInput("db_select", "Select Database", choices = NULL),
+             selectInput("db_select", "Select Database:", choices = NULL),
              
-             pickerInput(
-               inputId = "selected_pathways",
-               label = "Select Pathway(s)",
-               choices = NULL,
-               multiple = TRUE,
-               options = list(
-                 `live-search` = TRUE,
-                 `size` = 10,
-                 `selected-text-format` = "count > 3",
-                 `actions-box` = TRUE,
-                 `style` = "btn-primary",
-                 `iconBase` = "fas",
-                 `tickIcon` = "fas fa-check text-primary"
-               )
-             ),
+             textInput("pathway_search", "Search Pathways (e.g., adhesion, apoptosis, etc.):", ""),
+             actionButton("search_button", "Search"),
+             uiOutput("search_results"),
+             
              
              textInput("sample_desc", "Plot Title (optional)", value = ""),
              actionButton("generate_plot", "Generate Plot", class = "btn btn-primary btn-block"),
@@ -92,7 +81,7 @@ ui <- fluidPage(
              tags$ol(
                tags$li("Upload logCPM expression matrix with gene symbols or Ensembl IDs."),
                tags$li("Upload sample information CSV with 'sample_name' and an annotation column. If >1 annotation columns are included, only the first will be used."),
-               tags$li("Select a pathway database and choose one or more pathways."),
+               tags$li("Select a pathway database and search for one or more pathways by search term."),
                tags$li("Optionally add a title for each plot and generate plots interactively."),
                tags$li("You may download the lcpm counts matrix for the genes and samples in the heatmap."),
                tags$li("Use 'Remove Plot' buttons to remove unwanted plots from the display.")
