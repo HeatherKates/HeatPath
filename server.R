@@ -90,11 +90,22 @@ server <- function(input, output, session) {
       }
       
       # Save each scaled matrix to a separate .rds file
-      matrix_paths <- lapply(names(plots), function(uid) {
-        mat_path <- file.path(temp_dir, paste0(uid, ".rds"))
-        saveRDS(t(scale(t(plots[[uid]]$matrix))), mat_path)
-        list(title = plots[[uid]]$title, rds_path = mat_path)
-      })
+matrix_paths <- lapply(names(plots), function(uid) {
+  mat <- plots[[uid]]$matrix
+  scaled_mat <- t(scale(t(mat)))
+  ann_df <- sample_info() %>%
+    column_to_rownames("sample_name") %>%
+    .[colnames(mat), , drop = FALSE]
+
+  mat_path <- file.path(temp_dir, paste0(uid, "_mat.rds"))
+  ann_path <- file.path(temp_dir, paste0(uid, "_ann.rds"))
+
+  saveRDS(scaled_mat, mat_path)
+  saveRDS(ann_df, ann_path)
+
+  list(title = plots[[uid]]$title, mat_path = mat_path, ann_path = ann_path)
+})
+
       
       # Create the Rmd file content
       rmd_lines <- c(
@@ -110,23 +121,27 @@ server <- function(input, output, session) {
         ""
       )
       
-      for (entry in matrix_paths) {
-        title <- entry$title
-        abs_path <- normalizePath(entry$rds_path, winslash = "/")  # works on all OS
-        rmd_lines <- c(
-          rmd_lines,
-          paste0("## ", title),
-          "",
-          "```{r, echo=FALSE, message=FALSE, warning=FALSE}",
-          paste0("mat <- readRDS(\"", abs_path, "\")"),
-          "heatmaply(mat,",
-          "  plot_method = 'plotly',",
-          "  colors = colorRampPalette(c('red', 'white', 'blue'))(256)",
-          ")",
-          "```",
-          ""
-        )
-      }
+for (entry in matrix_paths) {
+  title <- entry$title
+  mat_path <- normalizePath(entry$mat_path, winslash = "/")
+  ann_path <- normalizePath(entry$ann_path, winslash = "/")
+
+  rmd_lines <- c(
+    rmd_lines,
+    paste0("## ", title),
+    "",
+    "```{r, echo=FALSE, message=FALSE, warning=FALSE}",
+    paste0("mat <- readRDS(\"", mat_path, "\")"),
+    paste0("ann_df <- readRDS(\"", ann_path, "\")"),
+    "heatmaply(mat,",
+    "  col_side_colors = ann_df,",
+    "  plot_method = 'plotly',",
+    "  colors = colorRampPalette(c('red', 'white', 'blue'))(256)",
+    ")",
+    "```",
+    ""
+  )
+}
       
       writeLines(rmd_lines, temp_rmd)
       
