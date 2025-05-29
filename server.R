@@ -5,7 +5,7 @@ library(tidyr)
 library(shinyWidgets)
 library(tibble)
 library(digest)
-id_converter <- readr::read_tsv("data/msigdbr_id_converter.txt", show_col_types = FALSE)
+id_converter <- read.delim("data/msigdbr_id_converter.txt", header = TRUE, sep = "\t", stringsAsFactors = FALSE)
 
 GO <- readRDS("data/gene_sets_human.rds")
 
@@ -146,9 +146,10 @@ server <- function(input, output, session) {
     req(input$pathway_file)
     
     db <- input$db_select
-    uploaded_ids <- readLines(input$pathway_file$datapath, warn = FALSE) %>%
-      trimws() %>%
-      discard(~ .x == "")
+    uploaded_ids <- readLines(input$pathway_file$datapath, warn = FALSE)
+    uploaded_ids <- trimws(uploaded_ids)
+    uploaded_ids <- uploaded_ids[uploaded_ids != ""]
+    
     
     # Filter the converter to just this database
     db_converter <- id_converter %>% filter(db == db)
