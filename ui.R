@@ -59,7 +59,7 @@ ui <- fluidPage(
              downloadButton("download_example_sampleinfo", "Download example sample info CSV file", class = "btn btn-sm btn-outline-primary"),
              
              selectInput("db_select", "Select Database:", choices = NULL),
-             
+             fileInput("pathway_file", "Upload Pathway List (one per line):", accept = c(".txt")),
              textInput("pathway_search", "Search Pathways (e.g., adhesion, apoptosis, etc.):", ""),
              actionButton("search_button", "Search"),
              uiOutput("search_results"),

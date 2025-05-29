@@ -5,6 +5,7 @@ library(tidyr)
 library(shinyWidgets)
 library(tibble)
 library(digest)
+id_converter <- readr::read_tsv("data/msigdbr_id_converter.txt", show_col_types = FALSE)
 
 GO <- readRDS("data/gene_sets_human.rds")
 
@@ -141,8 +142,48 @@ server <- function(input, output, session) {
   
   
   plotted_pathways <- reactiveVal(character())
+  observeEvent(input$pathway_file, {
+    req(input$pathway_file)
+    
+    db <- input$db_select
+    uploaded_ids <- readLines(input$pathway_file$datapath, warn = FALSE) %>%
+      trimws() %>%
+      discard(~ .x == "")
+    
+    # Filter the converter to just this database
+    db_converter <- id_converter %>% filter(db == db)
+    
+    # Match uploaded external IDs to msigdbr IDs
+    matched <- db_converter %>% filter(external_id %in% uploaded_ids)
+    unmatched <- setdiff(uploaded_ids, matched$external_id)
+    
+    if (nrow(matched) == 0) {
+      output$search_results <- renderUI(tags$p("No matching pathways found in MSigDB for the uploaded IDs."))
+    } else {
+      # Make named vector: msigdbr_id = label
+      id_choices <- setNames(matched$msigdbr_id, matched$gs_name)
+      
+      output$search_results <- renderUI({
+        checkboxGroupInput("selected_pathways", "Select Pathways from Uploaded File:",
+                           choices = id_choices, selected = matched$msigdbr_id)
+      })
+    }
+    
+    if (length(unmatched) > 0) {
+      showNotification(
+        paste0("The following ", length(unmatched), " IDs were not matched and excluded: ", paste(unmatched, collapse = ", ")),
+        type = "warning",
+        duration = 10
+      )
+    }
+    
+  })
+  
+  
   
   observeEvent(input$generate_plot, {
+    output$search_results <- renderUI(NULL)
+    
     req(input$selected_pathways)
     mat <- logcpm_data()
     ann_df <- sample_info()
@@ -154,7 +195,12 @@ server <- function(input, output, session) {
     
     for (pathway in new_pathways) {
       uid <- paste0("plot_", digest::digest(paste0(pathway, Sys.time(), runif(1))))
-      plot_title <- if (nzchar(input$sample_desc)) input$sample_desc else paste("Heatmap:", pathway)
+      # Look up human-readable name from metadata if available
+      db_meta <- GO[[input$db_select]]$metadata
+      pretty_name <- db_meta$name_clean[match(pathway, db_meta$set_id)]
+      
+      plot_title <- if (nzchar(input$sample_desc)) input$sample_desc else paste("Heatmap:", pretty_name %||% pathway)
+      
       
       genes <- GO[[input$db_select]]$genes[[pathway]]
       matched <- intersect(rownames(mat), genes)
@@ -209,8 +255,11 @@ server <- function(input, output, session) {
     
     plot_data(current_plots)
     plotted_pathways(union(previous, new_pathways))
+    
     updateCheckboxGroupInput(session, "selected_pathways", selected = character(0))
     updateTextInput(session, "sample_desc", value = "")
+    updateTextInput(session, "pathway_search", value = "")  # Optional
+    
   })
   
   output$heatmap_outputs <- renderUI({
