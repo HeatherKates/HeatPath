@@ -18,16 +18,20 @@ for (org in names(organisms)) {
     gene_list <- gene_list[lengths(gene_list) >= 10]
     
     meta <- df %>%
-      distinct(gs_name, gs_description) %>%
+      distinct(gs_id, gs_name, gs_description) %>%
       filter(gs_name %in% names(gene_list)) %>%
       mutate(
-        set_id = gs_name,
+        set_id = gs_id,  # Use the stable ID like GO:xxxxx or Mxxxxx
         name_clean = str_replace_all(gs_name, "_", " "),
-        searchable_text = paste(gs_name, gs_description, sep = " | ")
+        searchable_text = paste(gs_name, gs_description, gs_id, sep = " | ")
       )
     
+    # Ensure gene_list is keyed by gs_id instead of gs_name
+    gs_id_map <- meta %>% select(gs_id, gs_name)
+    gene_list_with_ids <- setNames(gene_list[gs_id_map$gs_name], gs_id_map$gs_id)
+    
     return(list(
-      genes = gene_list,
+      genes = gene_list_with_ids,
       metadata = meta
     ))
   }
@@ -60,4 +64,3 @@ for (org in names(organisms)) {
   # ---- Save ----
   saveRDS(gene_sets, file = paste0("data/gene_sets_", tag, ".rds"))
 }
-
